@@ -29,14 +29,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
     <link rel='stylesheet' href='css/common.css'>
 
-    <title>Hit Test</title>
+    <title>Hit Test using input source</title>
   </head>
   <body>
     <header>
       <details open>
-        <summary>Hit Test</summary>
+        <summary>Hit Test using input source</summary>
         <p>
-          This sample demonstrates use of hit testing to place virtual objects on real-world surfaces.
+          This sample demonstrates use of hit testing using input source (controller/hand) to place virtual objects on real-world surfaces.
           <a class="back" href="./">Back</a>
         </p>
       </details>
@@ -55,7 +55,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = null;
       let xrRefSpace = null;
       let xrViewerSpace = null;
-      let xrHitTestSource = null;
+      let xrTransientInputHitTestSource = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -70,9 +70,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let flower = new Gltf2Node({url: 'media/gltf/sunflower/sunflower.gltf'});
       arObject.addNode(flower);
 
-      let reticle = new Gltf2Node({url: 'media/gltf/reticle/reticle.gltf'});
-      reticle.visible = false;
-      scene.addNode(reticle);
+      let reticleLeft = new Gltf2Node({url: 'media/gltf/reticle/reticle.gltf'});
+      reticleLeft.visible = false;
+      scene.addNode(reticleLeft);
+
+      let reticleRight = new Gltf2Node({url: 'media/gltf/reticle/reticle.gltf'});
+      reticleRight.visible = false;
+      scene.addNode(reticleRight);
 
       // Having a really simple drop shadow underneath an object helps ground
       // it in the world without adding much complexity.
@@ -128,16 +132,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
-        // In this sample we want to cast a ray straight out from the viewer's
-        // position and render a reticle where it intersects with a real world
-        // surface. To do this we first get the viewer space, then create a
-        // hitTestSource that tracks it.
-        session.requestReferenceSpace('viewer').then((refSpace) => {
-          xrViewerSpace = refSpace;
-          session.requestHitTestSource({ space: xrViewerSpace }).then((hitTestSource) => {
-            xrHitTestSource = hitTestSource;
-          });
-        });
+        session.requestHitTestSourceForTransientInput({ profile: "generic-hand-select" })
+          .then((transientInputHitTestSource) => {
+            xrTransientInputHitTestSource = transientInputHitTestSource;
+            });
 
         session.requestReferenceSpace('local').then((refSpace) => {
           xrRefSpace = refSpace;
@@ -147,8 +145,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onEndSession(session) {
-        xrHitTestSource.cancel();
-        xrHitTestSource = null;
+        xrTransientInputHitTestSource.cancel();
+        xrTransientInputHitTestSource = null;
         session.end();
       }
 
@@ -178,11 +176,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let rayOrigin = vec3.create();
       let rayDirection = vec3.create();
       function onSelect(event) {
-        if (reticle.visible) {
+        if (event.inputSource.handedness == "left" &&
+            reticleLeft.visible) {
           // The reticle should already be positioned at the latest hit point, 
           // so we can just use it's matrix to save an unnecessary call to 
           // event.frame.getHitTestResults.
-          addARObjectAt(reticle.matrix);
+          addARObjectAt(reticleLeft.matrix);
+        } else if (event.inputSource.handedness == "right" &&
+                   reticleRight.visible) {
+            addARObjectAt(reticleRight.matrix);
         }
       }
 
@@ -191,16 +193,26 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         let session = frame.session;
         let pose = frame.getViewerPose(xrRefSpace);
 
-        reticle.visible = false;
+        updateInputSources(session, frame, xrRefSpace);
+
+        reticleLeft.visible = false;
+        reticleRight.visible = false;
 
         // If we have a hit test source, get its results for the frame
         // and use the pose to display a reticle in the scene.
-        if (xrHitTestSource && pose) {
-          let hitTestResults = frame.getHitTestResults(xrHitTestSource);
-          if (hitTestResults.length > 0) {
-            let pose = hitTestResults[0].getPose(xrRefSpace);
-            reticle.visible = true;
-            reticle.matrix = pose.transform.matrix;
+        if (xrTransientInputHitTestSource && pose) {
+          let inputHitTestResults = frame.getHitTestResultsForTransientInput(xrTransientInputHitTestSource);
+          for (let inputHitTestResult of inputHitTestResults) {
+            if (inputHitTestResult.results.length > 0) {
+              let pose = inputHitTestResult.results[0].getPose(xrRefSpace);
+              if (inputHitTestResult.inputSource.handedness == "left") {
+                reticleLeft.visible = true;
+                reticleLeft.matrix = pose.transform.matrix;
+              } else {
+                reticleRight.visible = true;
+                reticleRight.matrix = pose.transform.matrix;
+              }
+            }
           }
         }
 
@@ -211,6 +223,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         scene.drawXRFrame(frame, pose);
 
         scene.endFrame();
+      }
+
+      function updateInputSources(session, frame, refSpace) {
+        for (let inputSource of session.inputSources) {
+          let targetRayPose = frame.getPose(inputSource.targetRaySpace, refSpace);
+
+          // We may not get a pose back in cases where the input source has lost
+          // tracking or does not know where it is relative to the given frame
+          // of reference.
+          if (!targetRayPose) {
+            continue;
+          }
+
+          if (inputSource.targetRayMode == 'tracked-pointer') {
+            // If we have a pointer matrix and the pointer origin is the users
+            // hand (as opposed to their head or the screen) use it to render
+            // a ray coming out of the input device to indicate the pointer
+            // direction.
+            scene.inputRenderer.addLaserPointer(targetRayPose.transform);
+          }
+        }
       }
 
       // Start the XR application.
