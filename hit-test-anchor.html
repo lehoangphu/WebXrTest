@@ -235,7 +235,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 
         for (const {anchoredObject, anchor} of anchoredObjects) {
-          const anchorPose = frame.getPose(anchor.anchorSpace, xrImmersiveRefSpace);
+          const anchorPose = frame.getPose(anchor.anchorSpace, xrRefSpace);
           anchoredObject.matrix = anchorPose.transform.matrix;
         }
 
