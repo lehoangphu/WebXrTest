@@ -158,8 +158,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           const r = .6 + Math.random() * .4;
           const g = .6 + Math.random() * .4;
           const b = .6 + Math.random() * .4;
-          //addBox(0, 0, 0, r, g, b, boxes_left, i);
-          //addBox(0, 0, 0, r, g, b, boxes_right, i);
+          addBox(0, 0, 0, r, g, b, boxes_left, i);
+          addBox(0, 0, 0, r, g, b, boxes_right, i);
         }
       }
     }
@@ -295,7 +295,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             var i = 0;
             let tipPose = frame.getPose(inputSource.hand.get("index-finger-tip"), refSpace);
             for (const box of boxes[inputSource.handedness]) {
-              scene.addNode(box.node);
+              // scene.addNode(box.node);
               let joint = inputSource.hand.get(box.jointName);
               let jointPose = frame.getJointPose(joint, refSpace);
               if (!jointPose) { continue; }
