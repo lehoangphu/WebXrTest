@@ -148,6 +148,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onEndSession(session) {
+        anchoredObjects.clear();
         xrHitTestSource.cancel();
         xrHitTestSource = null;
         session.end();
