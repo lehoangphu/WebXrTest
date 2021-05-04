@@ -157,25 +157,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         xrButton.setSession(null);
       }
 
-      // Adds a new object to the scene at the
-      // specified transform.
-      function addARObjectAt(matrix) {
-        let newFlower = arObject.clone();
-        newFlower.visible = true;
-        newFlower.matrix = matrix;
-        scene.addNode(newFlower);
-
-        flowers.push(newFlower);
-
-        // For performance reasons if we add too many objects start
-        // removing the oldest ones to keep the scene complexity
-        // from growing too much.
-        if (flowers.length > MAX_FLOWERS) {
-          let oldFlower = flowers.shift();
-          scene.removeNode(oldFlower);
-        }
-      }
-
       const MAX_ANCHORED_OBJECTS = 30;
       let anchoredObjects = [];
       function addAnchoredObjectsToScene(anchor) {
@@ -200,11 +181,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let rayDirection = vec3.create();
       function onSelect(event) {
         if (reticle.visible) {
-          // The reticle should already be positioned at the latest hit point, 
-          // so we can just use it's matrix to save an unnecessary call to 
-          // event.frame.getHitTestResults.
-          // addARObjectAt(reticle.matrix);
-
           let frame = event.frame;
           // Create a free-floating anchor.
           frame.createAnchor(reticleTransform, xrRefSpace).then((anchor) => {
